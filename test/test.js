@@ -2,6 +2,9 @@ var kappa = require('kappa-core')
 var View = require('..')
 var ram = require('random-access-memory')
 var memdb = require('memdb')
+const hypertrie = require('hypertrie')
+const trie = hypertrie(ram, {valueEncoding: 'json'})
+
 var test = require('tape')
 
 test('mapper', function (t) {
@@ -10,7 +13,7 @@ test('mapper', function (t) {
   var core = kappa(ram, { valueEncoding: 'json' })
   var lvl = memdb()
 
-  var view = View(lvl, function (db) {
+  var view = View(lvl, trie, function (db) {
     return {
       map: function (entries, next) {
         var batch = entries.map(function (entry) {
@@ -44,15 +47,15 @@ test('mapper', function (t) {
     core.ready('mapper', function () {
       core.api.mapper.get('foo', function (err, res) {
         t.error(err)
-        t.same(res, 'bar')
+        t.same(res.value, 'bar')
       })
       core.api.mapper.get('bax', function (err, res) {
         t.error(err)
-        t.same(res, 'baz')
+        t.same(res.value, 'baz')
       })
       core.api.mapper.get('nix', function (err, res) {
-        t.ok(err)
-        t.ok(err.notFound)
+        t.error(err)
+        t.same(res, null)
       })
     })
   })
