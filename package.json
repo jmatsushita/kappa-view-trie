@@ -1,6 +1,6 @@
 {
-  "name": "kappa-view",
-  "description": "make views over kappa-core with leveldb",
+  "name": "kappa-view-trie",
+  "description": "make views over kappa-core with hypetrie",
   "author": "Jun Matsushita <jun@iilab.org>",
   "version": "1.0.0",
   "repository": {
