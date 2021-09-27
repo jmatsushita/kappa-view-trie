@@ -1,6 +1,6 @@
-# kappa-view
+# kappa-view-trie
 
-> Base for creating kappa-core views over LevelDB for view state and Hypetrie for data.
+> Base for creating kappa-core views over LevelDB for view state and Hypertrie for data.
 
 ## Materialized Views
 
