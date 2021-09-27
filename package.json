@@ -2,7 +2,7 @@
   "name": "kappa-view",
   "description": "make views over kappa-core with leveldb",
   "author": "Jun Matsushita <jun@iilab.org>",
-  "version": "3.1.0",
+  "version": "1.0.0",
   "repository": {
     "url": "git://github.com/jmatsushita/kappa-view-trie.git"
   },
