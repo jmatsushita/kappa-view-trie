@@ -1,13 +1,13 @@
 {
   "name": "kappa-view",
   "description": "make views over kappa-core with leveldb",
-  "author": "Stephen Whitmore <sww@eight.net>",
+  "author": "Jun Matsushita <jun@iilab.org>",
   "version": "3.1.0",
   "repository": {
-    "url": "git://github.com/noffle/kappa-view.git"
+    "url": "git://github.com/jmatsushita/kappa-view-trie.git"
   },
-  "homepage": "https://github.com/kappa-db/kappa-view",
-  "bugs": "https://github.com/kappa-db/kappa-view/issues",
+  "homepage": "https://github.com/kappa-db/kappa-view-trie",
+  "bugs": "https://github.com/kappa-db/kappa-view-trie/issues",
   "main": "index.js",
   "scripts": {
     "test": "tape test/*.js",
@@ -15,6 +15,7 @@
   },
   "keywords": [],
   "dependencies": {
+    "hypertrie": "^5.1.2",
     "pump": "^3.0.0",
     "readable-stream": "^3.4.0",
     "subleveldown": "^4.0.0"

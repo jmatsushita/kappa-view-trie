@@ -2,33 +2,49 @@ var kappa = require('kappa-core')
 var View = require('.')
 var ram = require('random-access-memory')
 var memdb = require('memdb')
+const hypertrie = require('hypertrie')
+const trie = hypertrie(ram, {valueEncoding: 'json'})
 
 var core = kappa(ram, { valueEncoding: 'json' })
-var lvl = memdb()
+var state = memdb()
 
-var view = View(lvl, {
-  map: function (msg) {
-    return [
-      [ msg.value.key, msg.value.value ]
-    ]
-  },
-  
-  api: {
-    get: function (key, cb) {
-      lvl.get(key, cb)
+var view = View(state, trie, function (data) {
+  return {
+    map: function (entries, next) {
+      const batch = entries.map(({value: {key, value}}) => {
+        return { 
+          type: 'put',
+          key,
+          value
+        }
+      })
+      data.batch(batch, (err) => {
+        if (err) return next(err)
+        return next()
+      })
+    },
+    
+    api: {
+      count: function (core, prefix, cb) {
+        core.ready(function () {  // wait for all views to catch up
+          data.list(prefix, (err, ret) => {
+            if (err) return cb(err);
+            const count = ret ? ret.length : 0;
+            cb(null, count);
+          })
+        })
+      }
     }
-  }
+  };
 })
 
 core.use('mapper', view)
 
-core.feed(function (err, feed) {
+core.writer('default', function (err, feed) {
   feed.append({key: 'foo', value: 'bar'})
   feed.append({key: 'bax', value: 'baz'})
-
+  feed.append({key: 'foo/bar', value: 'nix'})
   core.ready('mapper', function () {
-    core.api.mapper.get('foo', console.log)
-    core.api.mapper.get('bax', console.log)
-    core.api.mapper.get('nix', console.log)
+    core.api.mapper.count('foo', console.log)
   })
 })

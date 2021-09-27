@@ -4,13 +4,13 @@ var sub = require('subleveldown')
 
 module.exports = createIndex
 
-function createIndex (ldb, opts, makeFn) {
+function createIndex (stateDb, dataDb, opts, makeFn) {
   if (typeof opts === 'function' && !makeFn) {
     makeFn = opts
     opts = {}
   }
-  var stateDb = sub(ldb, 's')
-  var dataDb = sub(ldb, 'd', opts)
+  // var stateDb = sub(ldb, 's')
+  // var dataDb = sub(ldb, 'd', opts)
 
   var basic = {
     maxBatch: 100 || opts.maxBatch,
@@ -31,16 +31,25 @@ function createIndex (ldb, opts, makeFn) {
     clearIndex: function (cb) {
       var batch = []
       var maxSize = 5000
-      pump(dataDb.createKeyStream(), new Writable({
+      pump(dataDb.createHistoryStream(), new Writable({
         objectMode: true,
-        write: function (key, enc, next) {
+        write: function ({key}, enc, next) {
+          // console.log("kappa-view-trie.key", key)
           batch.push({ type: 'del', key })
           if (batch.length >= maxSize) {
-            dataDb.batch(batch, next)
+            // console.log("kappa-view-trie.batch.length", batch.length)
+            dataDb.batch(batch, (err) => {
+              if (err) return console.log('Ooops!', err)
+              next()
+            })
           } else next()
         },
         final: function (next) {
-          if (batch.length > 0) dataDb.batch(batch, next)
+          // console.log("final.batch", batch)
+          if (batch.length > 0) dataDb.batch(batch, (err) => {
+            if (err) return console.log('Ooops!', err)
+            next()
+          })
           else next()
         }
       }), ondone)
