@@ -1,15 +1,17 @@
 # kappa-view
 
-> Base for creating kappa-core views over LevelDB.
+> Base for creating kappa-core views over LevelDB for view state and Hypetrie for data.
 
 ## Materialized Views
 
 A materialized view does two things:
 
 1. A `map` function, that maps a list of log entries to modifications to a
-   view. In this case, a [LevelDB](https://github.com/level/level) database.
+   view. In this case, a [LevelDB](https://github.com/level/level) database
+   for view state and [Hypertrie](https://github.com/hypercore-protocol/hypertrie) 
+   for view data.
 2. An `api` object, which are functions and variables that the view exposes in
-   order to retrieve data from the LevelDB that `map` writes to.
+   order to retrieve data from the Hypertrie that `map` writes to.
 
 This module handles *view lifecycle* logic for you: normally a kappa view needs
 to manage storing and fetching the state of the indexer ("up to what log
@@ -19,59 +21,67 @@ database when the version of the view gets bumped.
 ## Example
 
 This is a view for a very simple single-value key-value store, that maps log
-entries like `{ key: 'foo', value: 'bar' }` to an API that allows `get(key)`
+entries like `{ key: 'foo', value: 'bar' }` to an API that allows `count(prefix)`
 queries.
+
 
 ```js
 var kappa = require('kappa-core')
-var makeView = require('kappa-view')
+var View = require('.')
 var ram = require('random-access-memory')
 var memdb = require('memdb')
+const hypertrie = require('hypertrie')
+const trie = hypertrie(ram, {valueEncoding: 'json'})
 
 var core = kappa(ram, { valueEncoding: 'json' })
-var lvl = memdb()
+var state = memdb()
 
-var view = makeView(lvl, function (db) {
+var view = View(state, trie, function (data) {
   return {
     map: function (entries, next) {
-      var batch = entries.map(function (entry) {
-        return {
+      const batch = entries.map(({value: {key, value}}) => {
+        return { 
           type: 'put',
-          key: entry.value.key,
-          value: entry.value.value
+          key,
+          value
         }
       })
-      db.batch(batch, next)
+      data.batch(batch, (err) => {
+        if (err) return next(err)
+        return next()
+      })
     },
     
     api: {
-      get: function (core, key, cb) {
-        core.ready(function () {
-          db.get(key, cb)
+      count: function (core, prefix, cb) {
+        core.ready(function () {  // wait for all views to catch up
+          data.list(prefix, (err, ret) => {
+            if (err) return cb(err);
+            const count = ret ? ret.length : 0;
+            cb(null, count);
+          })
         })
       }
     }
-  }
+  };
 })
 
-core.use('kv', view)
+core.use('mapper', view)
 
-core.writer(function (err, log) {
-  log.append({key: 'foo', value: 'bar'})
-  log.append({key: 'bax', value: 'baz'})
-
-  core.api.kv.get('foo', console.log)
-  core.api.kv.get('bax', console.log)
-  core.api.kv.get('nix', console.log)
+core.writer('default', function (err, feed) {
+  feed.append({key: 'foo', value: 'bar'})
+  feed.append({key: 'bax', value: 'baz'})
+  feed.append({key: 'foo/bar', value: 'nix'})
+  core.ready('mapper', function () {
+    core.api.mapper.count('foo', console.log)
+  })
 })
 ```
 
 outputs
 
 ```
-null 'bar'
-null 'baz'
-NotFoundError: Key not found in database [nix]
+null 2
 ```
 
 ## API
@@ -80,11 +90,13 @@ NotFoundError: Key not found in database [nix]
 var makeView = require('kappa-view')
 ```
 
-### var view = makeView(level, setupFunction)
+### var view = makeView(level, hypertrie, opts, setupFunction)
 
 Create a new view, backed by LevelDB.
 
 Expects a LevelUP or LevelDOWN instance `level`.
+
+Expects a Hypertrie instance `hypertrie`.
 
 `setupFunction` is a function that is given parameters `db` (LevelDB instance)
 and `core` (kappa-core instance). It is called exactly once. A kappa view must
@@ -102,7 +114,7 @@ be returned, which is an object with the keys
 With [npm](https://npmjs.org/) installed, run
 
 ```
-$ npm install kappa-view
+$ npm install kappa-view-trie
 ```
 
 ## License
